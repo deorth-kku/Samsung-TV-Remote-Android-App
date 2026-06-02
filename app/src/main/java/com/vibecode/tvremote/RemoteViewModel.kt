@@ -93,12 +93,12 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             var tvReachable = false
             while (isWaitingForWol && !tvReachable && pingAttempts < 100) {
                 pingAttempts++
-                delay(2000)
+                delay(1000)
                 try {
                     val address = java.net.InetAddress.getByName(ip)
                     if (address.isReachable(3000)) {
                         tvReachable = true
-                        Log.d("RemoteViewModel", "TV pingable after ${pingAttempts * 2}s")
+                        Log.d("RemoteViewModel", "TV pingable after ${pingAttempts}s")
                     }
                 } catch (_: Exception) {
                     // TV not reachable yet
@@ -109,12 +109,13 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             var tvOnline = false
             while (isWaitingForWol && !tvOnline && attempts < 20) {
                 attempts++
-                delay(3000)
+                delay(1000)
                 try {
                     java.net.Socket().use { socket ->
                         socket.connect(java.net.InetSocketAddress(ip, 8001), 3000)
                         tvOnline = true
                         socket.close()
+                        Log.d("RemoteViewModel", "TV 8001 connected after ${attempts}s")
                     }
                 } catch (_: Exception) {
                     // TV not reachable yet
