@@ -29,6 +29,7 @@ class SamsungTvClient(
     private val gson = Gson()
     private var client: OkHttpClient? = null
     private var webSocket: WebSocket? = null
+    private var currentIp: String? = null
     var currentState: State = State.DISCONNECTED
         private set(value) {
             field = value
@@ -44,6 +45,7 @@ class SamsungTvClient(
             disconnect()
         }
 
+        currentIp = ip
         currentState = State.CONNECTING
         val encodedAppName = Base64.encodeToString(appName.toByteArray(), Base64.NO_WRAP)
         val url = StringBuilder("wss://$ip:$PORT_SECURE/api/v2/channels/samsung.remote.control?name=$encodedAppName")
@@ -89,11 +91,13 @@ class SamsungTvClient(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closed")
                 currentState = State.DISCONNECTED
+                reconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
                 currentState = State.ERROR
+                reconnect()
             }
         })
     }
@@ -102,6 +106,13 @@ class SamsungTvClient(
         webSocket?.close(1000, "App request disconnect")
         webSocket = null
         currentState = State.DISCONNECTED
+    }
+
+    fun reconnect() {
+        if (currentState == State.CONNECTING || currentState == State.CONNECTED) return
+        val ip = currentIp ?: return
+        Log.d(TAG, "Reconnecting to $ip")
+        connect(ip)
     }
 
     fun sendKey(key: String) {

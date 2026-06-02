@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class RemoteViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,6 +32,9 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         private set
         
     var connectionState by mutableStateOf(SamsungTvClient.State.DISCONNECTED)
+        private set
+
+    var isWaitingForWol by mutableStateOf(false)
         private set
 
     private var tvClient: SamsungTvClient? = null
@@ -80,8 +84,25 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     fun wakeTv() {
         val mac = currentTvMacAddress ?: return
         val ip = currentTvIp ?: return
+        isWaitingForWol = true
         viewModelScope.launch(Dispatchers.IO) {
             WakeOnLanSender.sendWolPacket(mac, ip)
+            // Poll for TV to become reachable after WOL
+            var attempts = 0
+            while (isWaitingForWol && attempts < 60) {
+                attempts++
+                delay(3000)
+                try {
+                    java.net.Socket().use { socket ->
+                        socket.connect(java.net.InetSocketAddress(ip, 8002), 2000)
+                        // TV is reachable, try to reconnect
+                        tvClient?.reconnect()
+                        isWaitingForWol = false
+                    }
+                } catch (_: Exception) {
+                    // TV not reachable yet, continue polling
+                }
+            }
         }
     }
 

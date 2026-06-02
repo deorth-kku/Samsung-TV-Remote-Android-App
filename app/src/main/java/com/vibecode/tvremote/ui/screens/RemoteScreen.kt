@@ -69,20 +69,24 @@ fun RemoteScreen(
         AppShortcut("Disney+", "3201901017640", GlowPurple, Icons.Default.Slideshow)
     )
 
-    val statusText = when (connectionState) {
-        SamsungTvClient.State.DISCONNECTED -> "Disconnected"
-        SamsungTvClient.State.CONNECTING -> "Connecting..."
-        SamsungTvClient.State.PAIRING -> "Pairing: Check TV!"
-        SamsungTvClient.State.CONNECTED -> "Connected"
-        SamsungTvClient.State.ERROR -> "Connection Failed"
+    val statusText = when {
+        viewModel.isWaitingForWol -> "Waking TV..."
+        connectionState == SamsungTvClient.State.CONNECTED -> "Connected"
+        connectionState == SamsungTvClient.State.DISCONNECTED -> "Disconnected"
+        connectionState == SamsungTvClient.State.CONNECTING -> "Connecting..."
+        connectionState == SamsungTvClient.State.PAIRING -> "Pairing: Check TV!"
+        connectionState == SamsungTvClient.State.ERROR -> "Connection Failed"
+        else -> "Disconnected"
     }
 
-    val statusColor = when (connectionState) {
-        SamsungTvClient.State.DISCONNECTED -> MutedText
-        SamsungTvClient.State.CONNECTING -> AccentOrange
-        SamsungTvClient.State.PAIRING -> GlowPurple
-        SamsungTvClient.State.CONNECTED -> GlowCyan
-        SamsungTvClient.State.ERROR -> PowerPink
+    val statusColor = when {
+        viewModel.isWaitingForWol -> AccentOrange
+        connectionState == SamsungTvClient.State.CONNECTED -> GlowCyan
+        connectionState == SamsungTvClient.State.DISCONNECTED -> MutedText
+        connectionState == SamsungTvClient.State.CONNECTING -> AccentOrange
+        connectionState == SamsungTvClient.State.PAIRING -> GlowPurple
+        connectionState == SamsungTvClient.State.ERROR -> PowerPink
+        else -> MutedText
     }
 
     Box(
@@ -209,10 +213,10 @@ fun RemoteScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RemoteCircleButton(
-                    icon = Icons.Default.PowerSettingsNew,
-                    label = "Power",
-                    tint = PowerPink,
-                    glowColor = PowerPink,
+                    icon = if (viewModel.isWaitingForWol) Icons.Default.Sync else Icons.Default.PowerSettingsNew,
+                    label = if (viewModel.isWaitingForWol) "Waking..." else "Power",
+                    tint = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
+                    glowColor = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (connectionState != SamsungTvClient.State.CONNECTED) {
