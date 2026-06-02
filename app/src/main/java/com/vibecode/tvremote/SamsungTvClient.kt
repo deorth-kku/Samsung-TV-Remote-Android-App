@@ -30,6 +30,7 @@ class SamsungTvClient(
     private var client: OkHttpClient? = null
     private var webSocket: WebSocket? = null
     private var currentIp: String? = null
+    private var savedToken: String? = null
     var currentState: State = State.DISCONNECTED
         private set(value) {
             field = value
@@ -46,6 +47,7 @@ class SamsungTvClient(
         }
 
         currentIp = ip
+        savedToken = token
         currentState = State.CONNECTING
         val encodedAppName = Base64.encodeToString(appName.toByteArray(), Base64.NO_WRAP)
         val url = StringBuilder("wss://$ip:$PORT_SECURE/api/v2/channels/samsung.remote.control?name=$encodedAppName")
@@ -72,6 +74,7 @@ class SamsungTvClient(
                         val data = map["data"] as? Map<*, *>
                         val receivedToken = data?.get("token") as? String
                         if (receivedToken != null) {
+                            savedToken = receivedToken
                             onTokenReceived(receivedToken)
                         }
                         currentState = State.CONNECTED
@@ -112,7 +115,7 @@ class SamsungTvClient(
         if (currentState == State.CONNECTING || currentState == State.CONNECTED) return
         val ip = currentIp ?: return
         Log.d(TAG, "Reconnecting to $ip")
-        connect(ip)
+        connect(ip, savedToken)
     }
 
     fun sendKey(key: String) {
