@@ -617,7 +617,7 @@ fun RemoteScreen(
                                     viewModel.setTvIp(ip, tvIpInput)
                                 }
                                 if (tvMacInput != viewModel.currentTvMacAddress) {
-                                    viewModel.setTvMacAddress(ip, tvMacInput)
+                                    viewModel.setTvMacAddress(tvMacInput)
                                 }
                             }
                             showSettingsDialog = false
