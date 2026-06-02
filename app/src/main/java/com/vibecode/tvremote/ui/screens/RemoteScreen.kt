@@ -14,7 +14,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -216,7 +215,11 @@ fun RemoteScreen(
                     glowColor = PowerPink,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_POWER")
+                        if (connectionState != SamsungTvClient.State.CONNECTED) {
+                            viewModel.wakeTv()
+                        } else {
+                            viewModel.sendKey("KEY_POWER")
+                        }
                     }
                 )
 
@@ -639,42 +642,6 @@ fun RemoteScreen(
             )
         }
 
-        // Wake-on-LAN: tap TV name to configure MAC, or use Settings button
-        // Click the TV name to configure MAC address
-        // Press the wake button below to send WOL packet
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (viewModel.currentTvMacAddress != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(DarkCardBg)
-                    .border(1.dp, GlowCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.wakeTv()
-                    }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.WifiTethering,
-                    contentDescription = "Wake TV",
-                    tint = GlowCyan,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Wake TV",
-                    color = GlowCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
-        }
     }
 }
 
