@@ -2,6 +2,7 @@ package com.vibecode.tvremote
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -87,21 +88,41 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         isWaitingForWol = true
         viewModelScope.launch(Dispatchers.IO) {
             WakeOnLanSender.sendWolPacket(mac, ip)
-            // Poll for TV to become reachable after WOL
+            // ICMP ping poll to detect when TV is reachable after WOL
+            var pingAttempts = 0
+            var tvReachable = false
+            while (isWaitingForWol && !tvReachable && pingAttempts < 100) {
+                pingAttempts++
+                delay(2000)
+                try {
+                    val address = java.net.InetAddress.getByName(ip)
+                    if (address.isReachable(3000)) {
+                        tvReachable = true
+                        Log.d("RemoteViewModel", "TV pingable after ${pingAttempts * 2}s")
+                    }
+                } catch (_: Exception) {
+                    // TV not reachable yet
+                }
+            }
+            // Poll HTTP API (port 8001) to confirm TV is fully online
             var attempts = 0
-            while (isWaitingForWol && attempts < 60) {
+            var tvOnline = false
+            while (isWaitingForWol && !tvOnline && attempts < 20) {
                 attempts++
                 delay(3000)
                 try {
                     java.net.Socket().use { socket ->
-                        socket.connect(java.net.InetSocketAddress(ip, 8002), 2000)
-                        // TV is reachable, try to reconnect
-                        tvClient?.reconnect()
-                        isWaitingForWol = false
+                        socket.connect(java.net.InetSocketAddress(ip, 8001), 3000)
+                        tvOnline = true
+                        socket.close()
                     }
                 } catch (_: Exception) {
-                    // TV not reachable yet, continue polling
+                    // TV not reachable yet
                 }
+            }
+            if (tvOnline && isWaitingForWol) {           
+                tvClient?.reconnect()
+                isWaitingForWol = false
             }
         }
     }
