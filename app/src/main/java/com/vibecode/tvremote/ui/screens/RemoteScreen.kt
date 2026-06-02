@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -32,6 +33,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.vibecode.tvremote.RemoteViewModel
 import com.vibecode.tvremote.SamsungTvClient
 import com.vibecode.tvremote.ui.theme.*
@@ -97,31 +100,36 @@ fun RemoteScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .drawBehind {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(GlowPurple.copy(alpha = 0.12f), Color.Transparent),
-                            radius = size.width * 0.7f
-                        ),
-                        center = Offset(size.width * 0.2f, size.height * 0.8f)
-                    )
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(GlowCyan.copy(alpha = 0.12f), Color.Transparent),
-                            radius = size.width * 0.7f
-                        ),
-                        center = Offset(size.width * 0.8f, size.height * 0.2f)
-                    )
-                }
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .systemBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .blur(if (showSettingsDialog) 20.dp else 0.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(GlowPurple.copy(alpha = 0.12f), Color.Transparent),
+                                radius = size.width * 0.7f
+                            ),
+                            center = Offset(size.width * 0.2f, size.height * 0.8f)
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(GlowCyan.copy(alpha = 0.12f), Color.Transparent),
+                                radius = size.width * 0.7f
+                            ),
+                            center = Offset(size.width * 0.8f, size.height * 0.2f)
+                        )
+                    }
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
+                    .systemBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -475,9 +483,16 @@ fun RemoteScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.launchApp(app.id)
                         }
+                        }
                     }
                 }
             }
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = if (showSettingsDialog) 0.28f else 0f))
+            )
         }
 
         if (showKeyboardDialog) {
@@ -550,14 +565,37 @@ fun RemoteScreen(
 
         // TV Settings Dialog
         if (showSettingsDialog) {
-            AlertDialog(
+            Dialog(
                 onDismissRequest = { showSettingsDialog = false },
-                title = {
-                    Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold)
-                },
-                text = {
+                properties = DialogProperties(
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF1A1A24).copy(alpha = 0.72f),
+                                    Color(0xFF0F0F15).copy(alpha = 0.92f)
+                                )
+                            )
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
+                        .padding(24.dp)
+                ) {
                     Column {
-                        Text("Tap TV name above to edit settings", color = MutedText, fontSize = 12.sp)
+                        Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "Tap TV name above to edit settings",
+                            color = MutedText,
+                            fontSize = 12.sp
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
 
                         OutlinedTextField(
@@ -611,39 +649,43 @@ fun RemoteScreen(
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.currentTvIp?.let { ip ->
-                                if (tvNameInput != viewModel.currentTvName) {
-                                    viewModel.setTvName(tvNameInput)
-                                }
-                                if (tvIpInput != viewModel.currentTvIp) {
-                                    viewModel.setTvIp(ip, tvIpInput)
-                                }
-                                if (tvMacInput != viewModel.currentTvMacAddress) {
-                                    viewModel.setTvMacAddress(tvMacInput)
-                                }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TextButton(
+                                onClick = { showSettingsDialog = false },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Cancel", color = MutedText)
                             }
-                            showSettingsDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GlowCyan)
-                    ) {
-                        Text("Save", color = ObsidianBg, fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = {
+                                    viewModel.currentTvIp?.let { ip ->
+                                        if (tvNameInput != viewModel.currentTvName) {
+                                            viewModel.setTvName(tvNameInput)
+                                        }
+                                        if (tvIpInput != viewModel.currentTvIp) {
+                                            viewModel.setTvIp(ip, tvIpInput)
+                                        }
+                                        if (tvMacInput != viewModel.currentTvMacAddress) {
+                                            viewModel.setTvMacAddress(tvMacInput)
+                                        }
+                                    }
+                                    showSettingsDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GlowPurple),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Save", color = PureWhite, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showSettingsDialog = false }
-                    ) {
-                        Text("Cancel", color = MutedText)
-                    }
-                },
-                containerColor = DarkCardBg,
-                tonalElevation = 8.dp
-            )
+                }
+            }
         }
 
     }
