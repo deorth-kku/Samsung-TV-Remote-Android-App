@@ -10,9 +10,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +56,10 @@ fun RemoteScreen(
 
     var showKeyboardDialog by remember { mutableStateOf(false) }
     var keyboardInputText by remember { mutableStateOf(TextFieldValue("")) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var tvNameInput by remember { mutableStateOf("") }
+    var tvIpInput by remember { mutableStateOf("") }
+    var tvMacInput by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
     val apps = listOf(
@@ -135,7 +141,14 @@ fun RemoteScreen(
                 }
 
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        tvNameInput = viewModel.currentTvName ?: ""
+                        tvIpInput = viewModel.currentTvIp ?: ""
+                        tvMacInput = viewModel.currentTvMacAddress ?: ""
+                        showSettingsDialog = true
+                    }
                 ) {
                     Text(
                         text = tvName,
@@ -526,6 +539,141 @@ fun RemoteScreen(
                     }
                 }
             )
+        }
+
+        // TV Settings Dialog
+        if (showSettingsDialog) {
+            AlertDialog(
+                onDismissRequest = { showSettingsDialog = false },
+                title = {
+                    Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Column {
+                        Text("Tap TV name above to edit settings", color = MutedText, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = tvNameInput,
+                            onValueChange = { tvNameInput = it },
+                            label = { Text("TV Name") },
+                            placeholder = { Text("Samsung TV") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = PureWhite,
+                                unfocusedTextColor = PureWhite,
+                                focusedBorderColor = GlowCyan,
+                                unfocusedBorderColor = GlassBorder,
+                                cursorColor = GlowCyan
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = tvIpInput,
+                            onValueChange = { tvIpInput = it },
+                            label = { Text("IP Address") },
+                            placeholder = { Text("192.168.1.100") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = PureWhite,
+                                unfocusedTextColor = PureWhite,
+                                focusedBorderColor = GlowCyan,
+                                unfocusedBorderColor = GlassBorder,
+                                cursorColor = GlowCyan
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = tvMacInput,
+                            onValueChange = { tvMacInput = it },
+                            label = { Text("MAC Address (WOL)") },
+                            placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = PureWhite,
+                                unfocusedTextColor = PureWhite,
+                                focusedBorderColor = GlowCyan,
+                                unfocusedBorderColor = GlassBorder,
+                                cursorColor = GlowCyan
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.currentTvIp?.let { ip ->
+                                if (tvNameInput != viewModel.currentTvName) {
+                                    viewModel.setTvName(tvNameInput)
+                                }
+                                if (tvIpInput != viewModel.currentTvIp) {
+                                    viewModel.setTvIp(ip, tvIpInput)
+                                }
+                                if (tvMacInput != viewModel.currentTvMacAddress) {
+                                    viewModel.setTvMacAddress(ip, tvMacInput)
+                                }
+                            }
+                            showSettingsDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GlowCyan)
+                    ) {
+                        Text("Save", color = ObsidianBg, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showSettingsDialog = false }
+                    ) {
+                        Text("Cancel", color = MutedText)
+                    }
+                },
+                containerColor = DarkCardBg,
+                tonalElevation = 8.dp
+            )
+        }
+
+        // Wake-on-LAN: tap TV name to configure MAC, or use Settings button
+        // Click the TV name to configure MAC address
+        // Press the wake button below to send WOL packet
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (viewModel.currentTvMacAddress != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(DarkCardBg)
+                    .border(1.dp, GlowCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.wakeTv()
+                    }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiTethering,
+                    contentDescription = "Wake TV",
+                    tint = GlowCyan,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Wake TV",
+                    color = GlowCyan,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
         }
     }
 }

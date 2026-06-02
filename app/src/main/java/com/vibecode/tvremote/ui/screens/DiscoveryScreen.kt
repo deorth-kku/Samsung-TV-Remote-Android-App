@@ -39,6 +39,7 @@ fun DiscoveryScreen(
     onNavigateToRemote: () -> Unit
 ) {
     var manualIp by remember { mutableStateOf("") }
+    var manualMac by remember { mutableStateOf("") }
     val haptic = LocalHapticFeedback.current
     val discoveredTvs = viewModel.discoveredTvs
     val isScanning = viewModel.isScanning
@@ -150,6 +151,25 @@ fun DiscoveryScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = manualMac,
+                        onValueChange = { manualMac = it },
+                        placeholder = { Text("e.g. AA:BB:CC:DD:EE:FF", color = MutedText.copy(alpha = 0.5f)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = PureWhite,
+                            unfocusedTextColor = PureWhite,
+                            focusedBorderColor = GlowCyan,
+                            unfocusedBorderColor = GlassBorder,
+                            cursorColor = GlowCyan
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
@@ -157,6 +177,9 @@ fun DiscoveryScreen(
                             if (manualIp.isNotEmpty()) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.connectManually(manualIp)
+                                if (manualMac.isNotEmpty()) {
+                                    viewModel.setTvMacAddress(manualIp, manualMac)
+                                }
                                 onNavigateToRemote()
                             }
                         },

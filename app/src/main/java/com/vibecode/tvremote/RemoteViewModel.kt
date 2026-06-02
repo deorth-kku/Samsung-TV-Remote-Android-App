@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class RemoteViewModel(application: Application) : AndroidViewModel(application) {
@@ -26,6 +27,9 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     var currentTvName by mutableStateOf<String?>(null)
         private set
         
+    var currentTvMacAddress by mutableStateOf<String?>(null)
+        private set
+        
     var connectionState by mutableStateOf(SamsungTvClient.State.DISCONNECTED)
         private set
 
@@ -34,6 +38,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     init {
         currentTvIp = prefs.getString("saved_tv_ip", null)
         currentTvName = prefs.getString("saved_tv_name", "Paired Samsung TV")
+        currentTvMacAddress = prefs.getString("saved_tv_mac", null)
         val savedToken = currentTvIp?.let { ip ->
             prefs.getString("saved_tv_token_$ip", null) ?: prefs.getString("saved_tv_token", null)
         }
@@ -67,10 +72,24 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         tvClient?.connect(tv.ip, savedToken)
     }
 
+     fun setTvMacAddress(mac: String) {
+        currentTvMacAddress = mac
+        prefs.edit().putString("saved_tv_mac", mac).apply()
+    }
+
+    fun wakeTv() {
+        val mac = currentTvMacAddress ?: return
+        val ip = currentTvIp ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            WakeOnLanSender.sendWolPacket(mac, ip)
+        }
+    }
+
     fun connectManually(ip: String) {
         disconnect()
         currentTvIp = ip
         currentTvName = "Manual TV Connection"
+        currentTvMacAddress = prefs.getString("saved_tv_mac_$ip", null)
         
         prefs.edit()
             .putString("saved_tv_ip", ip)
@@ -79,6 +98,40 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             
         val savedToken = prefs.getString("saved_tv_token_$ip", null) ?: prefs.getString("saved_tv_token", null)
         tvClient?.connect(ip, savedToken)
+    }
+
+    fun setTvMacAddress(ip: String, mac: String) {
+        currentTvMacAddress = mac
+        prefs.edit().putString("saved_tv_mac_$ip", mac).apply()
+    }
+
+    fun setTvName(name: String) {
+        currentTvName = name
+        prefs.edit().putString("saved_tv_name", name).apply()
+    }
+
+    fun setTvIp(oldIp: String, newIp: String) {
+        disconnect()
+        currentTvIp = newIp
+        currentTvMacAddress = prefs.getString("saved_tv_mac_$oldIp", null)
+
+        val editor = prefs.edit()
+            .putString("saved_tv_ip", newIp)
+            .putString("saved_tv_name", currentTvName ?: "Samsung TV")
+
+        // Migrate MAC from old IP key
+        prefs.getString("saved_tv_mac_$oldIp", null)?.let { mac ->
+            editor.putString("saved_tv_mac_$newIp", mac)
+        }
+
+        // Migrate token
+        prefs.getString("saved_tv_token_$oldIp", null)?.let { token ->
+            editor.putString("saved_tv_token_$newIp", token)
+        }
+        editor.apply()
+
+        val savedToken = prefs.getString("saved_tv_token_$newIp", null)
+        tvClient?.connect(newIp, savedToken)
     }
 
     fun disconnect() {
@@ -91,12 +144,15 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         disconnect()
         currentTvIp = null
         currentTvName = null
+        currentTvMacAddress = null
         val editor = prefs.edit()
             .remove("saved_tv_ip")
             .remove("saved_tv_name")
+            .remove("saved_tv_mac")
             .remove("saved_tv_token")
         if (ip != null) {
             editor.remove("saved_tv_token_$ip")
+            editor.remove("saved_tv_mac_$ip")
         }
         editor.apply()
     }
