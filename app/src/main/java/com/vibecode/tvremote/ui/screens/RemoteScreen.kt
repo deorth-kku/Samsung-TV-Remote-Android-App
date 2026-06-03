@@ -10,7 +10,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -41,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -86,6 +90,23 @@ private fun appShortcutFor(app: SamsungTvApp): AppShortcut {
         key.contains("gallery") -> AppShortcut(app.name, app.appId, AccentOrange, Icons.Default.PhotoLibrary, app.appType)
         key.contains("app store") || key.contains("store") -> AppShortcut(app.name, app.appId, GlowPurple, Icons.Default.ShoppingBag, app.appType)
         else -> AppShortcut(app.name, app.appId, MutedText, Icons.Default.Apps, app.appType)
+    }
+}
+
+private fun Modifier.remoteKeyTouch(
+    key: String,
+    viewModel: RemoteViewModel,
+    haptic: HapticFeedback
+): Modifier = pointerInput(key, viewModel, haptic) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        down.consume()
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        viewModel.pressKey(key)
+
+        val up = waitForUpOrCancellation()
+        up?.consume()
+        viewModel.releaseKey(key)
     }
 }
 
@@ -276,10 +297,9 @@ fun RemoteScreen(
                 if (secondaryPanel) {
                     SecondaryKeyboardPanel(
                         modifier = Modifier.fillMaxSize(),
-                        onBackToMain = { showSecondaryPanel = false },
-                        onDigit = { digit -> viewModel.sendKey("KEY_$digit") },
-                        onBackspace = { viewModel.sendKey("KEY_BACKSPACE") },
-                        onReturn = { viewModel.sendKey("KEY_RETURN") }
+                        haptic = haptic,
+                        viewModel = viewModel,
+                        onBackToMain = { showSecondaryPanel = false }
                     )
                 } else {
                     PrimaryKeyboardPanel(
@@ -633,18 +653,27 @@ fun RemoteCircleButton(
     label: String,
     tint: Color,
     glowColor: Color? = null,
-    onClick: () -> Unit
+    remoteKey: String? = null,
+    viewModel: RemoteViewModel? = null,
+    haptic: HapticFeedback? = null,
+    onClick: (() -> Unit)? = null
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(8.dp)
     ) {
-        IconButton(
-            onClick = onClick,
+        val buttonModifier = if (remoteKey != null && viewModel != null && haptic != null) {
+            Modifier.remoteKeyTouch(remoteKey, viewModel, haptic)
+        } else {
+            Modifier.clickable { onClick?.invoke() }
+        }
+
+        Box(
             modifier = Modifier
                 .size(52.dp)
                 .background(GlassWhite, CircleShape)
                 .border(1.dp, GlassBorder, CircleShape)
+                .then(buttonModifier)
                 .drawBehind {
                     if (glowColor != null) {
                         drawCircle(
@@ -652,7 +681,8 @@ fun RemoteCircleButton(
                             radius = size.maxDimension * 0.7f
                         )
                     }
-                }
+                },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
@@ -676,13 +706,16 @@ fun DpadDirectionButton(
     icon: ImageVector,
     modifier: Modifier,
     contentDescription: String,
-    onClick: () -> Unit
+    remoteKey: String,
+    viewModel: RemoteViewModel,
+    haptic: HapticFeedback
 ) {
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = modifier
             .size(60.dp)
-            .padding(8.dp)
+            .remoteKeyTouch(remoteKey, viewModel, haptic)
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
@@ -798,7 +831,7 @@ fun InfoBanner(
 @Composable
 fun PrimaryKeyboardPanel(
     modifier: Modifier = Modifier,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    haptic: HapticFeedback,
     connectionState: SamsungTvClient.State,
     viewModel: RemoteViewModel,
     quickApps: List<AppShortcut>,
@@ -847,13 +880,12 @@ fun PrimaryKeyboardPanel(
                     label = if (viewModel.isWaitingForWol) "Waking..." else "Power",
                     tint = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
                     glowColor = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
+                    remoteKey = if (connectionState == SamsungTvClient.State.CONNECTED) "KEY_POWER" else null,
+                    viewModel = viewModel,
+                    haptic = haptic,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (connectionState != SamsungTvClient.State.CONNECTED) {
-                            viewModel.wakeTv()
-                        } else {
-                            viewModel.sendKey("KEY_POWER")
-                        }
+                        viewModel.wakeTv()
                     }
                 )
 
@@ -861,10 +893,9 @@ fun PrimaryKeyboardPanel(
                     icon = Icons.AutoMirrored.Filled.Input,
                     label = "Source",
                     tint = GlowCyan,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_SOURCE")
-                    }
+                    remoteKey = "KEY_SOURCE",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
 
                 RemoteCircleButton(
@@ -881,10 +912,9 @@ fun PrimaryKeyboardPanel(
                     icon = Icons.AutoMirrored.Filled.VolumeMute,
                     label = "Mute",
                     tint = MutedText,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_MUTE")
-                    }
+                    remoteKey = "KEY_MUTE",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
             }
 
@@ -916,40 +946,36 @@ fun PrimaryKeyboardPanel(
                     icon = Icons.Default.KeyboardArrowUp,
                     modifier = Modifier.align(Alignment.TopCenter),
                     contentDescription = "Up",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_UP")
-                    }
+                    remoteKey = "KEY_UP",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
 
                 DpadDirectionButton(
                     icon = Icons.Default.KeyboardArrowDown,
                     modifier = Modifier.align(Alignment.BottomCenter),
                     contentDescription = "Down",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_DOWN")
-                    }
+                    remoteKey = "KEY_DOWN",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
 
                 DpadDirectionButton(
                     icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     modifier = Modifier.align(Alignment.CenterStart),
                     contentDescription = "Left",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_LEFT")
-                    }
+                    remoteKey = "KEY_LEFT",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
 
                 DpadDirectionButton(
                     icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     modifier = Modifier.align(Alignment.CenterEnd),
                     contentDescription = "Right",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_RIGHT")
-                    }
+                    remoteKey = "KEY_RIGHT",
+                    viewModel = viewModel,
+                    haptic = haptic
                 )
 
                 Box(
@@ -962,10 +988,7 @@ fun PrimaryKeyboardPanel(
                             )
                         )
                         .border(1.dp, GlassBorder, CircleShape)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.sendKey("KEY_ENTER")
-                        },
+                        .remoteKeyTouch("KEY_ENTER", viewModel, haptic),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -995,10 +1018,12 @@ fun PrimaryKeyboardPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_VOLUP")
-                    }) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .remoteKeyTouch("KEY_VOLUP", viewModel, haptic),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(imageVector = Icons.Default.Add, contentDescription = "Vol Up", tint = GlowCyan)
                     }
                     Text(
@@ -1008,10 +1033,12 @@ fun PrimaryKeyboardPanel(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_VOLDOWN")
-                    }) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .remoteKeyTouch("KEY_VOLDOWN", viewModel, haptic),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(imageVector = Icons.Default.Remove, contentDescription = "Vol Down", tint = GlowCyan)
                     }
                 }
@@ -1020,28 +1047,24 @@ fun PrimaryKeyboardPanel(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.sendKey("KEY_RETURN")
-                        },
+                    Box(
                         modifier = Modifier
                             .size(56.dp)
                             .background(DarkCardBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
+                            .remoteKeyTouch("KEY_RETURN", viewModel, haptic),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
                     }
 
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.sendKey("KEY_HOME")
-                        },
+                    Box(
                         modifier = Modifier
                             .size(56.dp)
                             .background(DarkCardBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
+                            .remoteKeyTouch("KEY_HOME", viewModel, haptic),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(imageVector = Icons.Default.Home, contentDescription = "Home", tint = PureWhite)
                     }
@@ -1057,10 +1080,12 @@ fun PrimaryKeyboardPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_CHUP")
-                    }) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .remoteKeyTouch("KEY_CHUP", viewModel, haptic),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "CH Up", tint = GlowPurple)
                     }
                     Text(
@@ -1070,10 +1095,12 @@ fun PrimaryKeyboardPanel(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_CHDOWN")
-                    }) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .remoteKeyTouch("KEY_CHDOWN", viewModel, haptic),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "CH Down", tint = GlowPurple)
                     }
                 }
@@ -1115,10 +1142,9 @@ fun PrimaryKeyboardPanel(
 @Composable
 fun SecondaryKeyboardPanel(
     modifier: Modifier = Modifier,
-    onBackToMain: () -> Unit,
-    onDigit: (String) -> Unit,
-    onBackspace: () -> Unit,
-    onReturn: () -> Unit
+    haptic: HapticFeedback,
+    viewModel: RemoteViewModel,
+    onBackToMain: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -1167,9 +1193,8 @@ fun SecondaryKeyboardPanel(
                     .align(Alignment.Center)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                onDigit = onDigit,
-                onBackspace = onBackspace,
-                onReturn = onReturn
+                haptic = haptic,
+                viewModel = viewModel
             )
         }
 
@@ -1182,18 +1207,17 @@ fun SecondaryKeyboardPanel(
 @Composable
 fun NumericKeypad(
     modifier: Modifier = Modifier,
-    onDigit: (String) -> Unit,
-    onBackspace: () -> Unit,
-    onReturn: () -> Unit
+    haptic: HapticFeedback,
+    viewModel: RemoteViewModel
 ) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        NumericKeyRow(buttons = listOf("1", "2", "3"), onDigit = onDigit)
-        NumericKeyRow(buttons = listOf("4", "5", "6"), onDigit = onDigit)
-        NumericKeyRow(buttons = listOf("7", "8", "9"), onDigit = onDigit)
+        NumericKeyRow(buttons = listOf("1", "2", "3"), haptic = haptic, viewModel = viewModel)
+        NumericKeyRow(buttons = listOf("4", "5", "6"), haptic = haptic, viewModel = viewModel)
+        NumericKeyRow(buttons = listOf("7", "8", "9"), haptic = haptic, viewModel = viewModel)
         Row(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1202,14 +1226,18 @@ fun NumericKeypad(
                 icon = Icons.Default.Backspace,
                 contentDescription = "Backspace",
                 tint = GlowPurple,
-                onClick = onBackspace
+                remoteKey = "KEY_BACKSPACE",
+                haptic = haptic,
+                viewModel = viewModel
             )
-            KeypadDigitButton(label = "0", onClick = { onDigit("0") })
+            KeypadDigitButton(label = "0", remoteKey = "KEY_0", haptic = haptic, viewModel = viewModel)
             KeypadActionButton(
                 icon = Icons.Default.KeyboardReturn,
                 contentDescription = "Return",
                 tint = GlowCyan,
-                onClick = onReturn
+                remoteKey = "KEY_RETURN",
+                haptic = haptic,
+                viewModel = viewModel
             )
         }
     }
@@ -1218,13 +1246,16 @@ fun NumericKeypad(
 @Composable
 private fun NumericKeyRow(
     buttons: List<String>,
-    onDigit: (String) -> Unit
+    haptic: HapticFeedback,
+    viewModel: RemoteViewModel
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         buttons.forEach { digit ->
             KeypadDigitButton(
                 label = digit,
-                onClick = { onDigit(digit) }
+                remoteKey = "KEY_$digit",
+                haptic = haptic,
+                viewModel = viewModel
             )
         }
     }
@@ -1233,7 +1264,9 @@ private fun NumericKeyRow(
 @Composable
 private fun KeypadDigitButton(
     label: String,
-    onClick: () -> Unit
+    remoteKey: String,
+    haptic: HapticFeedback,
+    viewModel: RemoteViewModel
 ) {
     Box(
         modifier = Modifier
@@ -1241,7 +1274,7 @@ private fun KeypadDigitButton(
             .clip(RoundedCornerShape(24.dp))
             .background(GlassWhite)
             .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-            .clickable { onClick() },
+            .remoteKeyTouch(remoteKey, viewModel, haptic),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -1258,7 +1291,9 @@ private fun KeypadActionButton(
     icon: ImageVector,
     contentDescription: String,
     tint: Color,
-    onClick: () -> Unit
+    remoteKey: String,
+    haptic: HapticFeedback,
+    viewModel: RemoteViewModel
 ) {
     Box(
         modifier = Modifier
@@ -1266,7 +1301,7 @@ private fun KeypadActionButton(
             .clip(RoundedCornerShape(24.dp))
             .background(GlassWhite)
             .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-            .clickable { onClick() },
+            .remoteKeyTouch(remoteKey, viewModel, haptic),
         contentAlignment = Alignment.Center
     ) {
         Icon(

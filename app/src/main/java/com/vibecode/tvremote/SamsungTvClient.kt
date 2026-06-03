@@ -30,6 +30,12 @@ class SamsungTvClient(
         ERROR
     }
 
+    enum class KeyCommand(val wireName: String) {
+        CLICK("Click"),
+        PRESS("Press"),
+        RELEASE("Release")
+    }
+
     private val gson = Gson()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var client: OkHttpClient? = null
@@ -139,6 +145,18 @@ class SamsungTvClient(
     }
 
     fun sendKey(key: String) {
+        sendKey(key, KeyCommand.CLICK)
+    }
+
+    fun pressKey(key: String) {
+        sendKey(key, KeyCommand.PRESS)
+    }
+
+    fun releaseKey(key: String) {
+        sendKey(key, KeyCommand.RELEASE)
+    }
+
+    private fun sendKey(key: String, command: KeyCommand) {
         if (currentState != State.CONNECTED) {
             Log.w(TAG, "Cannot send key: Client not connected")
             return
@@ -148,7 +166,7 @@ class SamsungTvClient(
             {
                 "method": "ms.remote.control",
                 "params": {
-                    "Cmd": "Click",
+                    "Cmd": "${command.wireName}",
                     "DataOfCmd": "$key",
                     "Option": "false",
                     "TypeOfRemote": "SendRemoteKey"

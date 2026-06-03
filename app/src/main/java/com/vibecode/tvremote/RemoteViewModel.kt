@@ -237,6 +237,14 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         tvClient?.sendKey(key)
     }
 
+    fun pressKey(key: String) {
+        tvClient?.pressKey(key)
+    }
+
+    fun releaseKey(key: String) {
+        tvClient?.releaseKey(key)
+    }
+
     fun sendText(text: String) {
         tvClient?.sendText(text)
     }
