@@ -14,3 +14,6 @@
 .cxx
 local.properties
 *.jar
+AGENTS.md
+.codex
+.vscode
