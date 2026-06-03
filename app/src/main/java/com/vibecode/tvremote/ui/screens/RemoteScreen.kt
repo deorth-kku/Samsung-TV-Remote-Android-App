@@ -1,6 +1,7 @@
 package com.vibecode.tvremote.ui.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -43,6 +44,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -96,17 +99,76 @@ private fun appShortcutFor(app: SamsungTvApp): AppShortcut {
 private fun Modifier.remoteKeyTouch(
     key: String,
     viewModel: RemoteViewModel,
-    haptic: HapticFeedback
+    haptic: HapticFeedback,
+    onPressedChange: (Boolean) -> Unit
 ): Modifier = pointerInput(key, viewModel, haptic) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         down.consume()
+        onPressedChange(true)
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         viewModel.pressKey(key)
 
         val up = waitForUpOrCancellation()
         up?.consume()
+        onPressedChange(false)
         viewModel.releaseKey(key)
+    }
+}
+
+@Composable
+private fun RemoteKeySurface(
+    modifier: Modifier,
+    remoteKey: String,
+    viewModel: RemoteViewModel,
+    haptic: HapticFeedback,
+    shape: Shape,
+    glowColor: Color,
+    content: @Composable BoxScope.() -> Unit
+) {
+    var isPressed by remember(remoteKey) { mutableStateOf(false) }
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 0f,
+        animationSpec = tween(durationMillis = if (isPressed) 120 else 220),
+        label = "remoteKeyGlowAlpha"
+    )
+    val glowScale by animateFloatAsState(
+        targetValue = if (isPressed) 1.6f else 1.1f,
+        animationSpec = tween(durationMillis = if (isPressed) 120 else 220),
+        label = "remoteKeyGlowScale"
+    )
+    val contentScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.985f else 1f,
+        animationSpec = tween(durationMillis = if (isPressed) 120 else 220),
+        label = "remoteKeyContentScale"
+    )
+
+    Box(
+        modifier = modifier
+            .remoteKeyTouch(remoteKey, viewModel, haptic) { isPressed = it },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    scaleX = glowScale
+                    scaleY = glowScale
+                    alpha = glowAlpha
+                }
+                .background(glowColor, shape)
+        )
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    scaleX = contentScale
+                    scaleY = contentScale
+                },
+            contentAlignment = Alignment.Center,
+            content = content
+        )
     }
 }
 
@@ -662,34 +724,56 @@ fun RemoteCircleButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(8.dp)
     ) {
-        val buttonModifier = if (remoteKey != null && viewModel != null && haptic != null) {
-            Modifier.remoteKeyTouch(remoteKey, viewModel, haptic)
+        if (remoteKey != null && viewModel != null && haptic != null) {
+            RemoteKeySurface(
+                modifier = Modifier.size(52.dp),
+                remoteKey = remoteKey,
+                viewModel = viewModel,
+                haptic = haptic,
+                shape = CircleShape,
+                glowColor = (glowColor ?: tint).copy(alpha = 0.28f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(CircleShape)
+                        .background(GlassWhite, CircleShape)
+                        .border(1.dp, GlassBorder, CircleShape)
+                        .drawBehind {
+                            if (glowColor != null) {
+                                drawCircle(
+                                    color = glowColor.copy(alpha = 0.15f),
+                                    radius = size.maxDimension * 0.7f
+                                )
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = tint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
         } else {
-            Modifier.clickable { onClick?.invoke() }
-        }
-
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .background(GlassWhite, CircleShape)
-                .border(1.dp, GlassBorder, CircleShape)
-                .then(buttonModifier)
-                .drawBehind {
-                    if (glowColor != null) {
-                        drawCircle(
-                            color = glowColor.copy(alpha = 0.15f),
-                            radius = size.maxDimension * 0.7f
-                        )
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = tint,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(GlassWhite, CircleShape)
+                    .border(1.dp, GlassBorder, CircleShape)
+                    .clickable { onClick?.invoke() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = tint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -710,12 +794,13 @@ fun DpadDirectionButton(
     viewModel: RemoteViewModel,
     haptic: HapticFeedback
 ) {
-    Box(
-        modifier = modifier
-            .size(60.dp)
-            .remoteKeyTouch(remoteKey, viewModel, haptic)
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+    RemoteKeySurface(
+        modifier = modifier.size(60.dp),
+        remoteKey = remoteKey,
+        viewModel = viewModel,
+        haptic = haptic,
+        shape = CircleShape,
+        glowColor = GlowCyan.copy(alpha = 0.24f)
     ) {
         Icon(
             imageVector = icon,
@@ -978,26 +1063,34 @@ fun PrimaryKeyboardPanel(
                     haptic = haptic
                 )
 
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(GlowCyan.copy(alpha = 0.9f), GlowPurple.copy(alpha = 0.9f))
-                            )
-                        )
-                        .border(1.dp, GlassBorder, CircleShape)
-                        .remoteKeyTouch("KEY_ENTER", viewModel, haptic),
-                    contentAlignment = Alignment.Center
+                RemoteKeySurface(
+                    modifier = Modifier.size(80.dp),
+                    remoteKey = "KEY_ENTER",
+                    viewModel = viewModel,
+                    haptic = haptic,
+                    shape = CircleShape,
+                    glowColor = GlowCyan.copy(alpha = 0.32f)
                 ) {
-                    Text(
-                        text = "OK",
-                        color = ObsidianBg,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        letterSpacing = 1.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(GlowCyan.copy(alpha = 0.9f), GlowPurple.copy(alpha = 0.9f))
+                                )
+                            )
+                            .border(1.dp, GlassBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "OK",
+                            color = ObsidianBg,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 }
             }
 
@@ -1018,11 +1111,13 @@ fun PrimaryKeyboardPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .remoteKeyTouch("KEY_VOLUP", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(48.dp),
+                        remoteKey = "KEY_VOLUP",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = GlowCyan.copy(alpha = 0.28f)
                     ) {
                         Icon(imageVector = Icons.Default.Add, contentDescription = "Vol Up", tint = GlowCyan)
                     }
@@ -1033,11 +1128,13 @@ fun PrimaryKeyboardPanel(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .remoteKeyTouch("KEY_VOLDOWN", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(48.dp),
+                        remoteKey = "KEY_VOLDOWN",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = GlowCyan.copy(alpha = 0.28f)
                     ) {
                         Icon(imageVector = Icons.Default.Remove, contentDescription = "Vol Down", tint = GlowCyan)
                     }
@@ -1047,26 +1144,42 @@ fun PrimaryKeyboardPanel(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(DarkCardBg, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .remoteKeyTouch("KEY_RETURN", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(56.dp),
+                        remoteKey = "KEY_RETURN",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = PureWhite.copy(alpha = 0.18f)
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(DarkCardBg, CircleShape)
+                                .border(1.dp, GlassBorder, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
+                        }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(DarkCardBg, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .remoteKeyTouch("KEY_HOME", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(56.dp),
+                        remoteKey = "KEY_HOME",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = PureWhite.copy(alpha = 0.18f)
                     ) {
-                        Icon(imageVector = Icons.Default.Home, contentDescription = "Home", tint = PureWhite)
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(DarkCardBg, CircleShape)
+                                .border(1.dp, GlassBorder, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(imageVector = Icons.Default.Home, contentDescription = "Home", tint = PureWhite)
+                        }
                     }
                 }
 
@@ -1080,11 +1193,13 @@ fun PrimaryKeyboardPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .remoteKeyTouch("KEY_CHUP", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(48.dp),
+                        remoteKey = "KEY_CHUP",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = GlowPurple.copy(alpha = 0.28f)
                     ) {
                         Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "CH Up", tint = GlowPurple)
                     }
@@ -1095,11 +1210,13 @@ fun PrimaryKeyboardPanel(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .remoteKeyTouch("KEY_CHDOWN", viewModel, haptic),
-                        contentAlignment = Alignment.Center
+                    RemoteKeySurface(
+                        modifier = Modifier.size(48.dp),
+                        remoteKey = "KEY_CHDOWN",
+                        viewModel = viewModel,
+                        haptic = haptic,
+                        shape = CircleShape,
+                        glowColor = GlowPurple.copy(alpha = 0.28f)
                     ) {
                         Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "CH Down", tint = GlowPurple)
                     }
@@ -1268,21 +1385,29 @@ private fun KeypadDigitButton(
     haptic: HapticFeedback,
     viewModel: RemoteViewModel
 ) {
-    Box(
-        modifier = Modifier
-            .size(84.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(GlassWhite)
-            .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-            .remoteKeyTouch(remoteKey, viewModel, haptic),
-        contentAlignment = Alignment.Center
+    RemoteKeySurface(
+        modifier = Modifier.size(84.dp),
+        remoteKey = remoteKey,
+        viewModel = viewModel,
+        haptic = haptic,
+        shape = RoundedCornerShape(24.dp),
+        glowColor = GlowCyan.copy(alpha = 0.26f)
     ) {
-        Text(
-            text = label,
-            color = PureWhite,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(24.dp))
+                .background(GlassWhite)
+                .border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                color = PureWhite,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
@@ -1295,20 +1420,28 @@ private fun KeypadActionButton(
     haptic: HapticFeedback,
     viewModel: RemoteViewModel
 ) {
-    Box(
-        modifier = Modifier
-            .size(84.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(GlassWhite)
-            .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-            .remoteKeyTouch(remoteKey, viewModel, haptic),
-        contentAlignment = Alignment.Center
+    RemoteKeySurface(
+        modifier = Modifier.size(84.dp),
+        remoteKey = remoteKey,
+        viewModel = viewModel,
+        haptic = haptic,
+        shape = RoundedCornerShape(24.dp),
+        glowColor = tint.copy(alpha = 0.24f)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(32.dp)
-        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(24.dp))
+                .background(GlassWhite)
+                .border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }
