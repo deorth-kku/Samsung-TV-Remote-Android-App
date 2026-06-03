@@ -1,7 +1,9 @@
 package com.vibecode.tvremote
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -25,8 +27,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        enableEdgeToEdge()
+
+        val darkSystemBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        enableEdgeToEdge(
+            statusBarStyle = darkSystemBarStyle,
+            navigationBarStyle = darkSystemBarStyle
+        )
         
         setContent {
             TvRemoteTheme {
