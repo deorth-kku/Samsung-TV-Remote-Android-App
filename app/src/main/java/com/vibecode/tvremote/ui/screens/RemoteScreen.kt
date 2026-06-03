@@ -823,71 +823,66 @@ fun PrimaryKeyboardPanel(
             modifier = Modifier.matchParentSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(DarkCardBg)
-                .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RemoteCircleButton(
-                icon = if (viewModel.isWaitingForWol) Icons.Default.Sync else Icons.Default.PowerSettingsNew,
-                label = if (viewModel.isWaitingForWol) "Waking..." else "Power",
-                tint = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
-                glowColor = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (connectionState != SamsungTvClient.State.CONNECTED) {
-                        viewModel.wakeTv()
-                    } else {
-                        viewModel.sendKey("KEY_POWER")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(DarkCardBg)
+                    .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RemoteCircleButton(
+                    icon = if (viewModel.isWaitingForWol) Icons.Default.Sync else Icons.Default.PowerSettingsNew,
+                    label = if (viewModel.isWaitingForWol) "Waking..." else "Power",
+                    tint = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
+                    glowColor = if (viewModel.isWaitingForWol) AccentOrange else PowerPink,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (connectionState != SamsungTvClient.State.CONNECTED) {
+                            viewModel.wakeTv()
+                        } else {
+                            viewModel.sendKey("KEY_POWER")
+                        }
                     }
-                }
-            )
+                )
 
-            RemoteCircleButton(
-                icon = Icons.AutoMirrored.Filled.Input,
-                label = "Source",
-                tint = GlowCyan,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_SOURCE")
-                }
-            )
+                RemoteCircleButton(
+                    icon = Icons.AutoMirrored.Filled.Input,
+                    label = "Source",
+                    tint = GlowCyan,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_SOURCE")
+                    }
+                )
 
-            RemoteCircleButton(
-                icon = Icons.Default.Keyboard,
-                label = "Keyboard",
-                tint = GlowPurple,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onShowKeyboard()
-                }
-            )
+                RemoteCircleButton(
+                    icon = Icons.Default.Keyboard,
+                    label = "Keyboard",
+                    tint = GlowPurple,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onShowKeyboard()
+                    }
+                )
 
-            RemoteCircleButton(
-                icon = Icons.AutoMirrored.Filled.VolumeMute,
-                label = "Mute",
-                tint = MutedText,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_MUTE")
-                }
-            )
-        }
+                RemoteCircleButton(
+                    icon = Icons.AutoMirrored.Filled.VolumeMute,
+                    label = "Mute",
+                    tint = MutedText,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_MUTE")
+                    }
+                )
+            }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.TopCenter
-        ) {
+            Spacer(modifier = Modifier.weight(0.5f))
+
             Box(
                 modifier = Modifier
-                    .padding(top = 16.dp)
                     .size(240.dp)
                     .clip(CircleShape)
                     .background(DarkCardBg)
@@ -907,6 +902,7 @@ fun PrimaryKeyboardPanel(
                             )
                         }
                 )
+
                 DpadDirectionButton(
                     icon = Icons.Default.KeyboardArrowUp,
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -972,139 +968,139 @@ fun PrimaryKeyboardPanel(
                     )
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.weight(0.5f))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(72.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(DarkCardBg)
+                        .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_VOLUP")
+                    }) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = "Vol Up", tint = GlowCyan)
+                    }
+                    Text(
+                        text = "VOL",
+                        color = MutedText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_VOLDOWN")
+                    }) {
+                        Icon(imageVector = Icons.Default.Remove, contentDescription = "Vol Down", tint = GlowCyan)
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.sendKey("KEY_RETURN")
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(DarkCardBg, CircleShape)
+                            .border(1.dp, GlassBorder, CircleShape)
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
+                    }
+
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.sendKey("KEY_HOME")
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(DarkCardBg, CircleShape)
+                            .border(1.dp, GlassBorder, CircleShape)
+                    ) {
+                        Icon(imageVector = Icons.Default.Home, contentDescription = "Home", tint = PureWhite)
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .width(72.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(DarkCardBg)
+                        .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_CHUP")
+                    }) {
+                        Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "CH Up", tint = GlowPurple)
+                    }
+                    Text(
+                        text = "CH",
+                        color = MutedText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.sendKey("KEY_CHDOWN")
+                    }) {
+                        Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "CH Down", tint = GlowPurple)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(0.5f))
+
             Column(
                 modifier = Modifier
-                    .width(72.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(DarkCardBg)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
             ) {
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_VOLUP")
-                }) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Vol Up", tint = GlowCyan)
-                }
                 Text(
-                    text = "VOL",
+                    text = "QUICK APPS",
                     color = MutedText,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
                 )
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_VOLDOWN")
-                }) {
-                    Icon(imageVector = Icons.Default.Remove, contentDescription = "Vol Down", tint = GlowCyan)
-                }
-            }
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_RETURN")
-                    },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(DarkCardBg, CircleShape)
-                        .border(1.dp, GlassBorder, CircleShape)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
-                }
-
-                IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.sendKey("KEY_HOME")
-                    },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(DarkCardBg, CircleShape)
-                        .border(1.dp, GlassBorder, CircleShape)
-                ) {
-                    Icon(imageVector = Icons.Default.Home, contentDescription = "Home", tint = PureWhite)
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .width(72.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(DarkCardBg)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_CHUP")
-                }) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "CH Up", tint = GlowPurple)
-                }
-                Text(
-                    text = "CH",
-                    color = MutedText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.sendKey("KEY_CHDOWN")
-                }) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "CH Down", tint = GlowPurple)
-                }
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 20.dp)
-        ) {
-            Text(
-                text = "QUICK APPS",
-                color = MutedText,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-            )
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(quickApps) { app ->
-                    AppShortcutCapsule(app = app) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.launchApp(app.id, app.appType)
+                    items(quickApps) { app ->
+                        AppShortcutCapsule(app = app) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.launchApp(app.id, app.appType)
+                        }
                     }
                 }
             }
         }
     }
-}
-
 }
 
 @Composable
