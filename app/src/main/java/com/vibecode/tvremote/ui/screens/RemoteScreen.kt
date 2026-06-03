@@ -4,12 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.vibecode.tvremote.SamsungTvApp
 import com.vibecode.tvremote.RemoteViewModel
 import com.vibecode.tvremote.SamsungTvClient
 import com.vibecode.tvremote.ui.theme.*
@@ -48,8 +52,33 @@ data class AppShortcut(
     val name: String,
     val id: String,
     val color: Color,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val appType: Int? = null
 )
+
+private fun defaultQuickApps(): List<AppShortcut> = listOf(
+    AppShortcut("YouTube", "11101200001", GlowCyan, Icons.Default.PlayArrow),
+    AppShortcut("Netflix", "11101200007", PowerPink, Icons.Default.Movie),
+    AppShortcut("Prime Video", "3201512006785", AccentOrange, Icons.Default.VideoLibrary),
+    AppShortcut("Spotify", "3201606009684", Color(0xFF1DB954), Icons.Default.MusicNote),
+    AppShortcut("Disney+", "3201901017640", GlowPurple, Icons.Default.Slideshow)
+)
+
+private fun appShortcutFor(app: SamsungTvApp): AppShortcut {
+    val key = app.name.trim().lowercase()
+    return when {
+        key.contains("youtube") -> AppShortcut(app.name, app.appId, GlowCyan, Icons.Default.PlayArrow, app.appType)
+        key.contains("netflix") -> AppShortcut(app.name, app.appId, PowerPink, Icons.Default.Movie, app.appType)
+        key.contains("prime") -> AppShortcut(app.name, app.appId, AccentOrange, Icons.Default.VideoLibrary, app.appType)
+        key.contains("spotify") -> AppShortcut(app.name, app.appId, Color(0xFF1DB954), Icons.Default.MusicNote, app.appType)
+        key.contains("disney") -> AppShortcut(app.name, app.appId, GlowPurple, Icons.Default.Slideshow, app.appType)
+        key.contains("youtube tv") -> AppShortcut(app.name, app.appId, GlowCyan, Icons.Default.LiveTv, app.appType)
+        key.contains("browser") || key.contains("internet") -> AppShortcut(app.name, app.appId, GlowCyan, Icons.Default.Language, app.appType)
+        key.contains("gallery") -> AppShortcut(app.name, app.appId, AccentOrange, Icons.Default.PhotoLibrary, app.appType)
+        key.contains("app store") || key.contains("store") -> AppShortcut(app.name, app.appId, GlowPurple, Icons.Default.ShoppingBag, app.appType)
+        else -> AppShortcut(app.name, app.appId, MutedText, Icons.Default.Apps, app.appType)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,14 +97,17 @@ fun RemoteScreen(
     var tvIpInput by remember { mutableStateOf("") }
     var tvMacInput by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
-
-    val apps = listOf(
-        AppShortcut("YouTube", "11101200001", GlowCyan, Icons.Default.PlayArrow),
-        AppShortcut("Netflix", "11101200007", PowerPink, Icons.Default.Movie),
-        AppShortcut("Prime Video", "3201512006785", AccentOrange, Icons.Default.VideoLibrary),
-        AppShortcut("Spotify", "3201606009684", Color(0xFF1DB954), Icons.Default.MusicNote),
-        AppShortcut("Disney+", "3201901017640", GlowPurple, Icons.Default.Slideshow)
-    )
+    val availableApps = viewModel.installedApps.toList()
+    val pinnedApps = remember(availableApps, viewModel.pinnedAppIds.toList()) {
+        viewModel.pinnedAppIds.mapNotNull { pinnedId ->
+            availableApps.firstOrNull { it.appId == pinnedId }
+        }
+    }
+    val quickApps = if (pinnedApps.isNotEmpty()) {
+        pinnedApps.map(::appShortcutFor)
+    } else {
+        defaultQuickApps()
+    }
 
     val statusText = when {
         viewModel.isWaitingForWol -> "Waking TV..."
@@ -483,22 +515,22 @@ fun RemoteScreen(
                     contentPadding = PaddingValues(horizontal = 4.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(apps) { app ->
+                    items(quickApps) { app ->
                         AppShortcutCapsule(app = app) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.launchApp(app.id)
-                        }
+                            viewModel.launchApp(app.id, app.appType)
                         }
                     }
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = if (showSettingsDialog) 0.28f else 0f))
-            )
         }
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = if (showSettingsDialog) 0.28f else 0f))
+        )
 
         if (showKeyboardDialog) {
             AlertDialog(
@@ -568,6 +600,12 @@ fun RemoteScreen(
             )
         }
 
+        LaunchedEffect(showSettingsDialog) {
+            if (showSettingsDialog && connectionState == SamsungTvClient.State.CONNECTED && viewModel.installedApps.isEmpty() && !viewModel.isLoadingApps) {
+                viewModel.refreshInstalledApps()
+            }
+        }
+
         // TV Settings Dialog
         if (showSettingsDialog) {
             Dialog(
@@ -580,6 +618,7 @@ fun RemoteScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .fillMaxHeight(0.92f)
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(
@@ -593,15 +632,19 @@ fun RemoteScreen(
                         .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
                         .padding(24.dp)
                 ) {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Tap TV name above to edit settings",
+                            "You can edit the TV connection here even when the TV is offline.",
                             color = MutedText,
                             fontSize = 12.sp
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         OutlinedTextField(
                             value = tvNameInput,
@@ -688,12 +731,121 @@ fun RemoteScreen(
                                 Text("Save", color = PureWhite, fontWeight = FontWeight.Bold)
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Divider(color = GlassBorder.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Text("Quick Apps", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Pick which TV apps should appear in the bottom shortcut row.",
+                            color = MutedText,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (connectionState != SamsungTvClient.State.CONNECTED) {
+                            InfoBanner(
+                                title = "TV offline",
+                                body = "Connection settings can still be edited. App syncing will resume after the TV reconnects."
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { viewModel.refreshInstalledApps() },
+                                enabled = connectionState == SamsungTvClient.State.CONNECTED && !viewModel.isLoadingApps,
+                                colors = ButtonDefaults.buttonColors(containerColor = GlowCyan),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (viewModel.isLoadingApps) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = ObsidianBg
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text("Refresh apps", color = ObsidianBg, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { viewModel.setPinnedApps(emptyList()) },
+                                enabled = viewModel.pinnedAppIds.isNotEmpty(),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Clear pins", fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (viewModel.appLoadError != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            InfoBanner(
+                                title = "App loading failed",
+                                body = viewModel.appLoadError ?: "Unknown error"
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val pinnedPreview = viewModel.pinnedAppIds.mapNotNull { pinnedId ->
+                            availableApps.firstOrNull { it.appId == pinnedId }
+                        }
+                        if (pinnedPreview.isNotEmpty()) {
+                            Text("Pinned shortcuts", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(pinnedPreview, key = { it.appId }) { app ->
+                                    AppShortcutCapsule(app = appShortcutFor(app)) {
+                                        viewModel.togglePinnedApp(app)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        Text(
+                            text = if (availableApps.isEmpty()) "No installed apps loaded yet" else "Installed apps",
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (availableApps.isEmpty()) {
+                            Text(
+                                text = "Connect to the TV and tap Refresh apps. If the TV is offline, your connection details are still safe to edit.",
+                                color = MutedText,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.heightIn(max = 320.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(availableApps, key = { it.appId }) { app ->
+                                    AppSelectableRow(
+                                        shortcut = appShortcutFor(app),
+                                        pinned = viewModel.isPinned(app.appId),
+                                        onToggle = { viewModel.togglePinnedApp(app) }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
     }
+}
+
 }
 
 @Composable
@@ -791,5 +943,75 @@ fun AppShortcutCapsule(
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp
         )
+    }
+}
+
+@Composable
+fun AppSelectableRow(
+    shortcut: AppShortcut,
+    pinned: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(DarkCardBg)
+            .border(1.dp, if (pinned) shortcut.color.copy(alpha = 0.7f) else GlassBorder, RoundedCornerShape(18.dp))
+            .clickable { onToggle() }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(shortcut.color.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = shortcut.icon,
+                contentDescription = shortcut.name,
+                tint = shortcut.color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = shortcut.name,
+                color = PureWhite,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+            Text(
+                text = shortcut.id,
+                color = MutedText,
+                fontSize = 11.sp
+            )
+        }
+        Checkbox(
+            checked = pinned,
+            onCheckedChange = { onToggle() }
+        )
+    }
+}
+
+@Composable
+fun InfoBanner(
+    title: String,
+    body: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(GlassWhite)
+            .border(1.dp, GlassBorder, RoundedCornerShape(18.dp))
+            .padding(14.dp)
+    ) {
+        Text(title, color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(body, color = MutedText, fontSize = 12.sp)
     }
 }

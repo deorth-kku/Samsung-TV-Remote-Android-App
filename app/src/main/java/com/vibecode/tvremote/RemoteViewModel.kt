@@ -9,13 +9,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class RemoteViewModel(application: Application) : AndroidViewModel(application) {
+    companion object {
+        private const val KEY_CACHED_APPS = "cached_tv_apps"
+        private const val KEY_PINNED_APPS = "pinned_quick_apps"
+    }
+
     private val context = application.applicationContext
     private val prefs = context.getSharedPreferences("tv_remote_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
     private val scanner = NetworkScanner(context)
     
     var isScanning by mutableStateOf(false)
@@ -38,9 +46,21 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     var isWaitingForWol by mutableStateOf(false)
         private set
 
+    var isLoadingApps by mutableStateOf(false)
+        private set
+
+    var appLoadError by mutableStateOf<String?>(null)
+        private set
+
+    val installedApps = mutableStateListOf<SamsungTvApp>()
+    val pinnedAppIds = mutableStateListOf<String>()
+
     private var tvClient: SamsungTvClient? = null
 
     init {
+        loadCachedApps()
+        loadPinnedApps()
+
         currentTvIp = prefs.getString("saved_tv_ip", null)
         currentTvName = prefs.getString("saved_tv_name", "Paired Samsung TV")
         currentTvMacAddress = prefs.getString("saved_tv_mac", null)
@@ -51,7 +71,14 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         tvClient = SamsungTvClient(
             appName = "VibeRemote",
             onStateChanged = { state ->
-                connectionState = state
+                viewModelScope.launch {
+                    connectionState = state
+                    if (state == SamsungTvClient.State.CONNECTED) {
+                        refreshInstalledApps()
+                    } else if (state != SamsungTvClient.State.CONNECTING && state != SamsungTvClient.State.PAIRING) {
+                        isLoadingApps = false
+                    }
+                }
             },
             onTokenReceived = { token ->
                 saveToken(token)
@@ -180,6 +207,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     fun disconnect() {
         tvClient?.disconnect()
         connectionState = SamsungTvClient.State.DISCONNECTED
+        isLoadingApps = false
     }
 
     fun forgetTv() {
@@ -188,11 +216,16 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         currentTvIp = null
         currentTvName = null
         currentTvMacAddress = null
+        installedApps.clear()
+        appLoadError = null
+        pinnedAppIds.clear()
         val editor = prefs.edit()
             .remove("saved_tv_ip")
             .remove("saved_tv_name")
             .remove("saved_tv_mac")
             .remove("saved_tv_token")
+            .remove(KEY_CACHED_APPS)
+            .remove(KEY_PINNED_APPS)
         if (ip != null) {
             editor.remove("saved_tv_token_$ip")
             editor.remove("saved_tv_mac_$ip")
@@ -210,6 +243,65 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
 
     fun launchApp(appId: String) {
         tvClient?.launchApp(appId)
+    }
+
+    fun launchApp(appId: String, appType: Int?) {
+        tvClient?.launchApp(appId, appType)
+    }
+
+    fun launchApp(app: SamsungTvApp) {
+        tvClient?.launchApp(app)
+    }
+
+    fun refreshInstalledApps() {
+        if (connectionState != SamsungTvClient.State.CONNECTED) {
+            appLoadError = if (installedApps.isEmpty()) "TV is offline. Using saved shortcuts." else null
+            isLoadingApps = false
+            return
+        }
+
+        isLoadingApps = true
+        appLoadError = null
+        tvClient?.getInstalledApps(
+            onSuccess = { apps ->
+                installedApps.clear()
+                installedApps.addAll(apps.sortedBy { it.name.lowercase() })
+                persistApps()
+                appLoadError = if (apps.isEmpty()) "No apps were returned by the TV." else null
+                isLoadingApps = false
+            },
+            onError = { error ->
+                Log.w("RemoteViewModel", "Failed to load installed apps", error)
+                appLoadError = error.message ?: "Failed to load TV apps."
+                isLoadingApps = false
+            }
+        )
+    }
+
+    fun retryInstalledApps() {
+        refreshInstalledApps()
+    }
+
+    fun isPinned(appId: String): Boolean {
+        return pinnedAppIds.contains(appId)
+    }
+
+    fun togglePinnedApp(app: SamsungTvApp) {
+        if (pinnedAppIds.contains(app.appId)) {
+            pinnedAppIds.remove(app.appId)
+        } else {
+            if (pinnedAppIds.size >= 5) {
+                pinnedAppIds.removeAt(0)
+            }
+            pinnedAppIds.add(app.appId)
+        }
+        persistPinnedApps()
+    }
+
+    fun setPinnedApps(appIds: List<String>) {
+        pinnedAppIds.clear()
+        pinnedAppIds.addAll(appIds.take(5))
+        persistPinnedApps()
     }
 
     fun startSubnetScan() {
@@ -237,6 +329,38 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             .putString("saved_tv_token_$ip", token)
             .putString("saved_tv_token", token)
             .apply()
+    }
+
+    private fun persistApps() {
+        prefs.edit()
+            .putString(KEY_CACHED_APPS, gson.toJson(installedApps))
+            .apply()
+    }
+
+    private fun loadCachedApps() {
+        val json = prefs.getString(KEY_CACHED_APPS, null) ?: return
+        runCatching {
+            val type = object : TypeToken<List<SamsungTvApp>>() {}.type
+            val apps: List<SamsungTvApp> = gson.fromJson(json, type)
+            installedApps.clear()
+            installedApps.addAll(apps)
+        }
+    }
+
+    private fun persistPinnedApps() {
+        prefs.edit()
+            .putString(KEY_PINNED_APPS, gson.toJson(pinnedAppIds))
+            .apply()
+    }
+
+    private fun loadPinnedApps() {
+        val json = prefs.getString(KEY_PINNED_APPS, null) ?: return
+        runCatching {
+            val type = object : TypeToken<List<String>>() {}.type
+            val appIds: List<String> = gson.fromJson(json, type)
+            pinnedAppIds.clear()
+            pinnedAppIds.addAll(appIds.take(5))
+        }
     }
 
     override fun onCleared() {
