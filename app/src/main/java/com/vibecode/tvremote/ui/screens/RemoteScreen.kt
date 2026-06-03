@@ -13,6 +13,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Input
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -236,7 +241,7 @@ fun RemoteScreen(
                 )
 
                 RemoteCircleButton(
-                    icon = Icons.Default.Input,
+                    icon = Icons.AutoMirrored.Filled.Input,
                     label = "Source",
                     tint = GlowCyan,
                     onClick = {
@@ -256,7 +261,7 @@ fun RemoteScreen(
                 )
 
                 RemoteCircleButton(
-                    icon = Icons.Default.VolumeMute,
+                    icon = Icons.AutoMirrored.Filled.VolumeMute,
                     label = "Mute",
                     tint = MutedText,
                     onClick = {
@@ -311,7 +316,7 @@ fun RemoteScreen(
                 )
 
                 DpadDirectionButton(
-                    icon = Icons.Default.KeyboardArrowLeft,
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     modifier = Modifier.align(Alignment.CenterStart),
                     contentDescription = "Left",
                     onClick = {
@@ -321,7 +326,7 @@ fun RemoteScreen(
                 )
 
                 DpadDirectionButton(
-                    icon = Icons.Default.KeyboardArrowRight,
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     modifier = Modifier.align(Alignment.CenterEnd),
                     contentDescription = "Right",
                     onClick = {
@@ -408,7 +413,7 @@ fun RemoteScreen(
                             .background(DarkCardBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
                     ) {
-                        Icon(imageVector = Icons.Default.Undo, contentDescription = "Back", tint = PureWhite)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Back", tint = PureWhite)
                     }
 
                     IconButton(
