@@ -382,229 +382,238 @@ fun RemoteScreen(
                 onDismissRequest = { showSettingsDialog = false },
                 properties = DialogProperties(
                     dismissOnBackPress = true,
-                    dismissOnClickOutside = true
+                    dismissOnClickOutside = true,
+                    usePlatformDefaultWidth = false
                 )
             ) {
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.92f)
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF1A1A24).copy(alpha = 0.72f),
-                                    Color(0xFF0F0F15).copy(alpha = 0.92f)
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val dialogAspectRatio = maxWidth / maxHeight
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(dialogAspectRatio, matchHeightConstraintsFirst = true)
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFF1A1A24).copy(alpha = 0.72f),
+                                        Color(0xFF0F0F15).copy(alpha = 0.92f)
+                                    )
                                 )
                             )
-                        )
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
-                        .padding(24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
+                            .padding(horizontal = 20.dp, vertical = 28.dp)
                     ) {
-                        Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "You can edit the TV connection here even when the TV is offline.",
-                            color = MutedText,
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        OutlinedTextField(
-                            value = tvNameInput,
-                            onValueChange = { tvNameInput = it },
-                            label = { Text("TV Name") },
-                            placeholder = { Text("Samsung TV") },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = PureWhite,
-                                unfocusedTextColor = PureWhite,
-                                focusedBorderColor = GlowCyan,
-                                unfocusedBorderColor = GlassBorder,
-                                cursorColor = GlowCyan
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = tvIpInput,
-                            onValueChange = { tvIpInput = it },
-                            label = { Text("IP Address") },
-                            placeholder = { Text("192.168.1.100") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = PureWhite,
-                                unfocusedTextColor = PureWhite,
-                                focusedBorderColor = GlowCyan,
-                                unfocusedBorderColor = GlassBorder,
-                                cursorColor = GlowCyan
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = tvMacInput,
-                            onValueChange = { tvMacInput = it },
-                            label = { Text("MAC Address (WOL)") },
-                            placeholder = { Text("AA:BB:CC:DD:EE:FF") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = PureWhite,
-                                unfocusedTextColor = PureWhite,
-                                focusedBorderColor = GlowCyan,
-                                unfocusedBorderColor = GlassBorder,
-                                cursorColor = GlowCyan
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
                         ) {
-                            TextButton(
-                                onClick = { showSettingsDialog = false },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Cancel", color = MutedText)
-                            }
-                            Button(
-                                onClick = {
-                                    viewModel.currentTvIp?.let { ip ->
-                                        if (tvNameInput != viewModel.currentTvName) {
-                                            viewModel.setTvName(tvNameInput)
-                                        }
-                                        if (tvIpInput != viewModel.currentTvIp) {
-                                            viewModel.setTvIp(ip, tvIpInput)
-                                        }
-                                        if (tvMacInput != viewModel.currentTvMacAddress) {
-                                            viewModel.setTvMacAddress(tvMacInput)
-                                        }
-                                    }
-                                    showSettingsDialog = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = GlowPurple),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Save", color = PureWhite, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Divider(color = GlassBorder.copy(alpha = 0.5f))
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        Text("Quick Apps", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Pick which TV apps should appear in the bottom shortcut row.",
-                            color = MutedText,
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        if (connectionState != SamsungTvClient.State.CONNECTED) {
-                            InfoBanner(
-                                title = "TV offline",
-                                body = "Connection settings can still be edited. App syncing will resume after the TV reconnects."
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(
-                                onClick = { viewModel.refreshInstalledApps() },
-                                enabled = connectionState == SamsungTvClient.State.CONNECTED && !viewModel.isLoadingApps,
-                                colors = ButtonDefaults.buttonColors(containerColor = GlowCyan),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                if (viewModel.isLoadingApps) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = ObsidianBg
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                                Text("Refresh apps", color = ObsidianBg, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.setPinnedApps(emptyList()) },
-                                enabled = viewModel.pinnedAppIds.isNotEmpty(),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Clear pins", fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        if (viewModel.appLoadError != null) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            InfoBanner(
-                                title = "App loading failed",
-                                body = viewModel.appLoadError ?: "Unknown error"
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        val pinnedPreview = viewModel.pinnedAppIds.mapNotNull { pinnedId ->
-                            availableApps.firstOrNull { it.appId == pinnedId }
-                        }
-                        if (pinnedPreview.isNotEmpty()) {
-                            Text("Pinned shortcuts", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("TV Settings", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                             Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(pinnedPreview, key = { it.appId }) { app ->
-                                    AppShortcutCapsule(app = appShortcutFor(app)) {
-                                        viewModel.togglePinnedApp(app)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-
-                        Text(
-                            text = if (availableApps.isEmpty()) "No installed apps loaded yet" else "Installed apps",
-                            color = PureWhite,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (availableApps.isEmpty()) {
                             Text(
-                                text = "Connect to the TV and tap Refresh apps. If the TV is offline, your connection details are still safe to edit.",
+                                "You can edit the TV connection here even when the TV is offline.",
                                 color = MutedText,
                                 fontSize = 12.sp
                             )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.heightIn(max = 320.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            OutlinedTextField(
+                                value = tvNameInput,
+                                onValueChange = { tvNameInput = it },
+                                label = { Text("TV Name") },
+                                placeholder = { Text("Samsung TV") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = PureWhite,
+                                    unfocusedTextColor = PureWhite,
+                                    focusedBorderColor = GlowCyan,
+                                    unfocusedBorderColor = GlassBorder,
+                                    cursorColor = GlowCyan
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = tvIpInput,
+                                onValueChange = { tvIpInput = it },
+                                label = { Text("IP Address") },
+                                placeholder = { Text("192.168.1.100") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = PureWhite,
+                                    unfocusedTextColor = PureWhite,
+                                    focusedBorderColor = GlowCyan,
+                                    unfocusedBorderColor = GlassBorder,
+                                    cursorColor = GlowCyan
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = tvMacInput,
+                                onValueChange = { tvMacInput = it },
+                                label = { Text("MAC Address (WOL)") },
+                                placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = PureWhite,
+                                    unfocusedTextColor = PureWhite,
+                                    focusedBorderColor = GlowCyan,
+                                    unfocusedBorderColor = GlassBorder,
+                                    cursorColor = GlowCyan
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(availableApps, key = { it.appId }) { app ->
-                                    AppSelectableRow(
-                                        shortcut = appShortcutFor(app),
-                                        pinned = viewModel.isPinned(app.appId),
-                                        onToggle = { viewModel.togglePinnedApp(app) }
-                                    )
+                                TextButton(
+                                    onClick = { showSettingsDialog = false },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Cancel", color = MutedText)
+                                }
+                                Button(
+                                    onClick = {
+                                        viewModel.currentTvIp?.let { ip ->
+                                            if (tvNameInput != viewModel.currentTvName) {
+                                                viewModel.setTvName(tvNameInput)
+                                            }
+                                            if (tvIpInput != viewModel.currentTvIp) {
+                                                viewModel.setTvIp(ip, tvIpInput)
+                                            }
+                                            if (tvMacInput != viewModel.currentTvMacAddress) {
+                                                viewModel.setTvMacAddress(tvMacInput)
+                                            }
+                                        }
+                                        showSettingsDialog = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = GlowPurple),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Save", color = PureWhite, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Divider(color = GlassBorder.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Text("Quick Apps", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Pick which TV apps should appear in the bottom shortcut row.",
+                                color = MutedText,
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            if (connectionState != SamsungTvClient.State.CONNECTED) {
+                                InfoBanner(
+                                    title = "TV offline",
+                                    body = "Connection settings can still be edited. App syncing will resume after the TV reconnects."
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Button(
+                                    onClick = { viewModel.refreshInstalledApps() },
+                                    enabled = connectionState == SamsungTvClient.State.CONNECTED && !viewModel.isLoadingApps,
+                                    colors = ButtonDefaults.buttonColors(containerColor = GlowCyan),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    if (viewModel.isLoadingApps) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = ObsidianBg
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text("Refresh apps", color = ObsidianBg, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { viewModel.setPinnedApps(emptyList()) },
+                                    enabled = viewModel.pinnedAppIds.isNotEmpty(),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Clear pins", fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (viewModel.appLoadError != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                InfoBanner(
+                                    title = "App loading failed",
+                                    body = viewModel.appLoadError ?: "Unknown error"
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            val pinnedPreview = viewModel.pinnedAppIds.mapNotNull { pinnedId ->
+                                availableApps.firstOrNull { it.appId == pinnedId }
+                            }
+                            if (pinnedPreview.isNotEmpty()) {
+                                Text("Pinned shortcuts", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(pinnedPreview, key = { it.appId }) { app ->
+                                        AppShortcutCapsule(app = appShortcutFor(app)) {
+                                            viewModel.togglePinnedApp(app)
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+
+                            Text(
+                                text = if (availableApps.isEmpty()) "No installed apps loaded yet" else "Installed apps",
+                                color = PureWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (availableApps.isEmpty()) {
+                                Text(
+                                    text = "Connect to the TV and tap Refresh apps. If the TV is offline, your connection details are still safe to edit.",
+                                    color = MutedText,
+                                    fontSize = 12.sp
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.heightIn(max = 320.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(availableApps, key = { it.appId }) { app ->
+                                        AppSelectableRow(
+                                            shortcut = appShortcutFor(app),
+                                            pinned = viewModel.isPinned(app.appId),
+                                            onToggle = { viewModel.togglePinnedApp(app) }
+                                        )
+                                    }
                                 }
                             }
                         }
